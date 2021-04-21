@@ -1,2 +1,6 @@
 # Scrambling
-test readme push
+#### Autorzy:
+Łukasz Mieczyński
+Wojciech Bednarczyk
+Wojciech Kaczmarek
+
