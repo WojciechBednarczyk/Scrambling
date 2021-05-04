@@ -7,7 +7,7 @@ HostIP = input("Type IP (leave blank for 127.0.0.1): ")
 if not HostIP:
     HostIP = '127.0.0.1'
 
-# Port serwera
+# Port serwera f
 HostPort = 5555
 
 # Tworzenie serwera
