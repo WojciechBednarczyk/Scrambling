@@ -7,7 +7,7 @@ HostIP = input("Type IP (leave blank for 127.0.0.1): ")
 if not HostIP:
     HostIP = '127.0.0.1'
 
-# Port serwera
+# Port serwera f
 HostPort = 5555
 
 # Tworzenie serwera
@@ -33,7 +33,7 @@ Bytes = numpy.fromfile(image, dtype="uint8")
 Bits = list(numpy.asarray(numpy.unpackbits(Bytes))) # Bity jako lista
 # Bits = numpy.unpackbits(Bytes)
 print(Bytes)
-#zmiana w tablicy od 1000 indeksu do końca
+#zmiana w tablicy od 500 indeksu do końca
 Bytes[500:] = 255
 
 
