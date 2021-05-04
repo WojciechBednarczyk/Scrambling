@@ -32,7 +32,13 @@ imgFile = open(image, 'rb')
 Bytes = numpy.fromfile(image, dtype="uint8")
 Bits = list(numpy.asarray(numpy.unpackbits(Bytes))) # Bity jako lista
 # Bits = numpy.unpackbits(Bytes)
+print(Bytes)
+#zmiana w tablicy od 1000 indeksu do końca
+Bytes[500:] = 255
 
+
+
+print(Bytes)
 amount = 0          # Ilosc takich samych bitów z kolei (kazde jedno to 0.1% szans na pominięcie)
 isZeroNow = True    # Uzywane do zliczania ilości takich samych bitów z kolei
 index = 0           # Indeks pętli, nie miałem pomysłu jak to sensownie zrobić xd
@@ -58,7 +64,7 @@ for j in Bits:      # Dla kazdego bitu, j -> bit
 
 
 # Pakowanie bitów z powrotem w bajty i wysyłanie
-Bytes = numpy.packbits(Bits)
+#Bytes = numpy.packbits(Bits)
 client_socket.send(Bytes)
 
 # !! Tu trzeba jakiegoś ifa dać czy faktycznie plik się wysłał
