@@ -193,19 +193,29 @@ image_switched_array = image_array.copy()
 bits_to_bytes(image_switched_bits, image_switched_array)
 cv2.imwrite('switched_bits.jpg', image_switched_array)
 
+# =============== DVB ================
 # Scramblowanie DVB
 scrambled_dvb_bits = scramDVB(image_data_bits.copy())
 scrambled_dvb_array = image_array.copy()
 bits_to_bytes(scrambled_dvb_bits, scrambled_dvb_array)
 cv2.imwrite('DVB_scrambled.jpg', scrambled_dvb_array)
 
-# Scramblowanie V34
+# =============== V34 ================
+# Scramblowanie i zapisywanie
 scrambled_v34_bits = scramV34(image_data_bits.copy())
 scrambled_v34_array = image_array.copy()
 bits_to_bytes(scrambled_v34_bits, scrambled_v34_array)
 cv2.imwrite('V34_scrambled.jpg', scrambled_v34_array)
 
-# Scramblowanie X16
+# Zamiana bitów, descrambling
+switch_bits(scrambled_v34_bits)
+descrambled_v34_bits = descramV34(scrambled_v34_bits)
+descrambled_v34_array = image_array.copy()
+bits_to_bytes(descrambled_v34_bits, descrambled_v34_array)
+cv2.imwrite('V34_descrambled.jpg', descrambled_v34_array)
+
+# =============== X16 ================
+# Scramblowanie i zapisywanie
 scrambled_x16_bits = scramX16(image_data_bits.copy())
 scrambled_x16_array = image_array.copy()
 bits_to_bytes(scrambled_x16_bits, scrambled_x16_array)
