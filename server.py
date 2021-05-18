@@ -135,7 +135,6 @@ def switch_bits(bits):
         # Skipuje bit jak wylosuje się odpowiednia liczba
         rand = random.randint(1, 100)
         if rand <= amount:
-            #print(f"[Debug] Zamienianie bitu [Bit: {bits[index]}] [Losowa: {rand}] [Procent: {amount}], [Index: {index}]")
             if bits[index] == 0:
                 bits.pop(index)
                 bits.insert(index, 1)
@@ -149,7 +148,6 @@ def bits_to_bytes(bits, array):    # Zamiana z powrotem na bajty
     bit_holder = []
     bit_counter = 0
     data = []
-    #data_byte_counter = 0
     for i in range(0, len(bits)):
         bit_holder.append(bits[i])
         bit_counter += 1
@@ -159,7 +157,6 @@ def bits_to_bytes(bits, array):    # Zamiana z powrotem na bajty
                 string += str(bit_holder[j])
             data.append(int(string, 2))
             bit_counter = 0
-            #data_byte_counter += 1
             bit_holder = []
 
     byte_counter = 0
@@ -194,11 +191,18 @@ bits_to_bytes(image_switched_bits, image_switched_array)
 cv2.imwrite('switched_bits.jpg', image_switched_array)
 
 # =============== DVB ================
-# Scramblowanie DVB
+# Scramblowanie
 scrambled_dvb_bits = scramDVB(image_data_bits.copy())
 scrambled_dvb_array = image_array.copy()
 bits_to_bytes(scrambled_dvb_bits, scrambled_dvb_array)
 cv2.imwrite('DVB_scrambled.jpg', scrambled_dvb_array)
+
+# Zamiana bitów, descrambling
+switch_bits(scrambled_dvb_bits)
+descrambled_dvb_bits = scramDVB(scrambled_dvb_bits)
+descrambled_dvb_array = image_array.copy()
+bits_to_bytes(descrambled_dvb_bits, descrambled_dvb_array)
+cv2.imwrite('DVB_descrambled.jpg', descrambled_dvb_array)
 
 # =============== V34 ================
 # Scramblowanie i zapisywanie
@@ -221,16 +225,9 @@ scrambled_x16_array = image_array.copy()
 bits_to_bytes(scrambled_x16_bits, scrambled_x16_array)
 cv2.imwrite('X16_scrambled.jpg', scrambled_x16_array)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+# Zamiana bitów, descrambling
+switch_bits(scrambled_x16_bits)
+descrambled_x16_bits = scramX16(scrambled_x16_bits)
+descrambled_x16_array = image_array.copy()
+bits_to_bytes(descrambled_x16_bits, descrambled_x16_array)
+cv2.imwrite('X16_descrambled.jpg', descrambled_x16_array)
