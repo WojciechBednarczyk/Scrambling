@@ -10,7 +10,7 @@ counter_dvb = [0, 0]
 counter_v34 = [0, 0]
 counter_x16 = [0, 0]
 
-data_counter = [0,0]
+data_counter = [0, 0]
 # ================================ Zegary
 # Metoda zegara dla scramblerów addytywnych, sprzężenie zwrotne xora dla bitów ramki i sygnału wejściowego
 def sync_clock(frame, data, bit, counter):
@@ -99,11 +99,14 @@ def scramX16(signal):
 
 
 def sumOfBits(signal):
+    data_counter[0] = 0
+    data_counter[1] = 0
     for i in range(0, len(signal)):
         if signal[i] == 0:
             data_counter[0] += 1
         else:
             data_counter[1] += 1
+
 
 # Zamiana bajtow obrazu na bity
 def image_to_bits(data, bits):  # data -> bajty, bits -> docelowe zapisanie bitów
@@ -181,6 +184,10 @@ for x in range(0, len(image_array)):
 image_data_bits = []        # Bity początkowego obrazka
 image_to_bits(image_data, image_data_bits)
 
+sumOfBits(image_data_bits)
+print(f"Ilosc bitów po poszczególnych scramblowaniach")
+print(f"[START] 0: {data_counter[0]}, 1: {data_counter[1]}")
+
 # Kopiowanie obrazka i zamiana bitów w kopii
 image_switched_bits = image_data_bits.copy()
 switch_bits(image_switched_bits)
@@ -193,6 +200,8 @@ cv2.imwrite('switched_bits.jpg', image_switched_array)
 # =============== DVB ================
 # Scramblowanie
 scrambled_dvb_bits = scramDVB(image_data_bits.copy())
+sumOfBits(scrambled_dvb_bits)
+print(f"[DVB] 0: {data_counter[0]}, 1: {data_counter[1]}")
 scrambled_dvb_array = image_array.copy()
 bits_to_bytes(scrambled_dvb_bits, scrambled_dvb_array)
 cv2.imwrite('DVB_scrambled.jpg', scrambled_dvb_array)
@@ -207,6 +216,8 @@ cv2.imwrite('DVB_descrambled.jpg', descrambled_dvb_array)
 # =============== V34 ================
 # Scramblowanie i zapisywanie
 scrambled_v34_bits = scramV34(image_data_bits.copy())
+sumOfBits(scrambled_v34_bits)
+print(f"[V34] 0: {data_counter[0]}, 1: {data_counter[1]}")
 scrambled_v34_array = image_array.copy()
 bits_to_bytes(scrambled_v34_bits, scrambled_v34_array)
 cv2.imwrite('V34_scrambled.jpg', scrambled_v34_array)
@@ -221,6 +232,8 @@ cv2.imwrite('V34_descrambled.jpg', descrambled_v34_array)
 # =============== X16 ================
 # Scramblowanie i zapisywanie
 scrambled_x16_bits = scramX16(image_data_bits.copy())
+sumOfBits(scrambled_x16_bits)
+print(f"[X16] 0: {data_counter[0]}, 1: {data_counter[1]}")
 scrambled_x16_array = image_array.copy()
 bits_to_bytes(scrambled_x16_bits, scrambled_x16_array)
 cv2.imwrite('X16_scrambled.jpg', scrambled_x16_array)
