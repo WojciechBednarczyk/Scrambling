@@ -134,12 +134,12 @@ def switch_bits(bits, switch_chance, counter, doCount):
     amount = 0         # Ilosc takich samych bitów z kolei
     chance = 0         # Szansa na pominięcie bitu
     isZeroNow = True   # Uzywane do zliczania ilości takich samych bitów z kolei
-    index = 0          # Indeks pętli
+    index = 5          # Indeks pętli
 
     while index < len(bits):  # Dla kazdego bitu, index -> bit
         if (bits[index] == 0 and isZeroNow) or (bits[index] == 1 and not isZeroNow):  # Zliczanie
             amount += 1
-            chance = chance + (0.01 * switch_chance * (amount/2.0))
+            chance = chance + (0.0075 * switch_chance * (amount/2.0))
             if doCount:
                 if isZeroNow and maxZerosAmount < amount:
                     maxZerosAmount = amount
