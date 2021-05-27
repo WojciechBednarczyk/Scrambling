@@ -2,6 +2,7 @@ from operator import xor
 import numpy as np
 import random
 import cv2
+import xlsxwriter
 
 # Liczniki bitów dla poszczególnych scramblerów
 counter_dvb = [0, 0]
@@ -291,6 +292,92 @@ def count_switched_bits(bits, counter):
             cntr += 1  # ... dodaj 1 do licznika
     counter.append(cntr)  # Dodawanie licznika do listy
 
+
+def write_stats_to_excel():
+    workbook = xlsxwriter.Workbook('stats.xlsx')
+    worksheet = workbook.add_worksheet()
+
+    worksheet.write(1, 1, 'Amount of bits switched')
+    worksheet.write(2, 1, 'Switch Intensity')
+    worksheet.write(2, 2, 'START')
+    worksheet.write(2, 3, 'DVB')
+    worksheet.write(2, 4, 'V34')
+    worksheet.write(2, 5, 'X16')
+
+    for i in range(0, 100):
+        worksheet.write(i + 3, 1, i + 1)
+        worksheet.write(i + 3, 2, counter_data_diffrent_bits[i])
+        worksheet.write(i + 3, 3, counter_dvb_diffrent_bits[i])
+        worksheet.write(i + 3, 4, counter_v34_diffrent_bits[i])
+        worksheet.write(i + 3, 5, counter_x16_diffrent_bits[i])
+
+    worksheet.write(1, 7, 'Longest bit sequence')
+    worksheet.write(2, 7, '0')
+    worksheet.write(3, 7, '1')
+
+    worksheet.write(1, 8, 'Start')
+    worksheet.write(2, 8, counter_data_longest_sequence[0])
+    worksheet.write(3, 8, counter_data_longest_sequence[1])
+
+    worksheet.write(1, 9, 'DVB')
+    worksheet.write(2, 9, counter_dvb_longest_sequence[0])
+    worksheet.write(3, 9, counter_dvb_longest_sequence[1])
+
+    worksheet.write(1, 10, 'V34')
+    worksheet.write(2, 10, counter_v34_longest_sequence[0])
+    worksheet.write(3, 10, counter_v34_longest_sequence[1])
+
+    worksheet.write(1, 11, 'X16')
+    worksheet.write(2, 11, counter_x16_longest_sequence[0])
+    worksheet.write(3, 11, counter_x16_longest_sequence[1])
+
+    worksheet.write(5, 7, 'Amount of bits')
+    worksheet.write(6, 7, '0')
+    worksheet.write(7, 7, '1')
+
+    worksheet.write(5, 8, 'Start')
+    worksheet.write(6, 8, data_counter[0])
+    worksheet.write(7, 8, data_counter[1])
+
+    worksheet.write(5, 9, 'DVB')
+    worksheet.write(6, 9, counter_dvb[0])
+    worksheet.write(7, 9, counter_dvb[1])
+
+    worksheet.write(5, 10, 'V34')
+    worksheet.write(6, 10, counter_v34[0])
+    worksheet.write(7, 10, counter_v34[1])
+
+    worksheet.write(5, 11, 'X16')
+    worksheet.write(6, 11, counter_x16[0])
+    worksheet.write(7, 11, counter_x16[1])
+
+    workbook.close()
+
+
+def print_stats():
+    print(f"===== START IMAGE =====")
+    print(f"Amount of Bits: [0: {data_counter[0]}], [1: {data_counter[1]}]")
+    print(f"Longest sequence of bits: [0: {counter_data_longest_sequence[0]}], [1: {counter_data_longest_sequence[1]}]")
+    print(f"Amount of bits switched: {counter_data_diffrent_bits[switch_intensity - 1]}")
+
+    print(f"========= DVB =========")
+    print(f"Amount of Bits: [0: {counter_dvb[0]}], [1: {counter_dvb[1]}]")
+    print(f"Longest sequence of bits: [0: {counter_dvb_longest_sequence[0]}], [1: {counter_dvb_longest_sequence[1]}]")
+    print(f"Amount of bits switched: {counter_dvb_diffrent_bits[switch_intensity - 1]}")
+
+    print(f"========= V34 =========")
+    print(f"Amount of Bits: [0: {counter_v34[0]}], [1: {counter_v34[1]}]")
+    print(f"Longest sequence of bits: [0: {counter_v34_longest_sequence[0]}], [1: {counter_v34_longest_sequence[1]}]")
+    print(f"Amount of bits switched: {counter_v34_diffrent_bits[switch_intensity - 1]}")
+
+    print(f"========= X16 =========")
+    print(f"Amount of Bits: [0: {counter_x16[0]}], [1: {counter_x16[1]}]")
+    print(f"Longest sequence of bits: [0: {counter_x16_longest_sequence[0]}], [1: {counter_x16_longest_sequence[1]}]")
+    print(f"Amount of bits switched: {counter_x16_diffrent_bits[switch_intensity - 1]}")
+    print(f"=======================")
+    print(f"Ilość zamienionych bitów wyświetlana dla wartości intensywności zamiany równej {switch_intensity}!")
+
+
 # =============== WYWOŁYWANIE PROGRAMU =================
 # Wczytywanie pliku do wysłania
 image_name = input("Type file name: ")
@@ -325,24 +412,7 @@ tests_V34(image_data_bits.copy(), image_array.copy())
 tests_X16(image_data_bits.copy(), image_array.copy())
 
 # Wyświetlanie statystyk
-print(f"===== START IMAGE =====")
-print(f"Amount of Bits: [0: {data_counter[0]}], [1: {data_counter[1]}]")
-print(f"Longest sequence of bits: [0: {counter_data_longest_sequence[0]}], [1: {counter_data_longest_sequence[1]}]")
-print(f"Amount of bits switched: {counter_data_diffrent_bits[switch_intensity-1]}")
+print_stats()
 
-print(f"========= DVB =========")
-print(f"Amount of Bits: [0: {counter_dvb[0]}], [1: {counter_dvb[1]}]")
-print(f"Longest sequence of bits: [0: {counter_dvb_longest_sequence[0]}], [1: {counter_dvb_longest_sequence[1]}]")
-print(f"Amount of bits switched: {counter_dvb_diffrent_bits[switch_intensity-1]}")
-
-print(f"========= V34 =========")
-print(f"Amount of Bits: [0: {counter_v34[0]}], [1: {counter_v34[1]}]")
-print(f"Longest sequence of bits: [0: {counter_v34_longest_sequence[0]}], [1: {counter_v34_longest_sequence[1]}]")
-print(f"Amount of bits switched: {counter_v34_diffrent_bits[switch_intensity-1]}")
-
-print(f"========= X16 =========")
-print(f"Amount of Bits: [0: {counter_x16[0]}], [1: {counter_x16[1]}]")
-print(f"Longest sequence of bits: [0: {counter_x16_longest_sequence[0]}], [1: {counter_x16_longest_sequence[1]}]")
-print(f"Amount of bits switched: {counter_x16_diffrent_bits[switch_intensity-1]}")
-print(f"=======================")
-print(f"Ilość zamienionych bitów wyświetlana dla wartości intensywności zamiany równej {switch_intensity}!")
+# Zapisywanie statystyk do excela
+write_stats_to_excel()
