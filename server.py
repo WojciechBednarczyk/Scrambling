@@ -132,7 +132,6 @@ def split(word):
 
 
 def encryption(data, array):
-    array2 = array.copy()
     cipher = AES.new(key, AES.MODE_CBC, iv)
     ct_bytes = cipher.encrypt(pad(data, AES.block_size))
     b = split(ct_bytes)
@@ -141,13 +140,13 @@ def encryption(data, array):
     image_to_bits(results,bits)
     bits_to_bytes(bits, array)
     cv2.imwrite('AESencryption.jpg', array)  # Zapisywanie obrazka po szyfrowaniu
-    bits2 = []
+
     cipher2 = AES.new(key, AES.MODE_CBC, iv)
-    pt = unpad(cipher2.decrypt(ct_bytes), AES.block_size)
-    desired_array = [int(numeric_string) for numeric_string in pt.decode("utf-8")]
-    image_to_bits(desired_array, bits2)
-    bits_to_bytes(bits2, array2)
-    cv2.imwrite('AESdescryption.jpg', array2)  # Zapisywanie obrazka po odszyfrowaniu
+    pt = unpad(cipher2.decrypt(ct_bytes), AES.block_size).decode("utf-8")
+    desired_array = [int(numeric_string) for numeric_string in pt]
+    bits_to_bytes(desired_array, array)
+    cv2.imwrite('AESdescryption.jpg', array)  # Zapisywanie obrazka po odszyfrowaniu
+
 
 
 
@@ -429,8 +428,7 @@ for x in range(0, len(image_array)):
 image_data_bits = []  # Bity początkowego obrazka
 image_to_bits(image_data, image_data_bits)
 
-bytes_as_String = ''.join(str(x) for x in image_data)
-
+bytes_as_String = ''.join(str(x) for x in image_data_bits)
 
 switch_intensity = int(input("Type switching intensity [1-100] (only for in-console stats and file save): "))
 if switch_intensity < 1 or switch_intensity > 100:
