@@ -1,10 +1,17 @@
 from operator import xor
+
 import numpy as np
 import random
 import cv2
 import xlsxwriter
 
 # Liczniki bitów dla poszczególnych scramblerów
+from Crypto.Cipher import AES
+from Crypto.Random import get_random_bytes
+from Crypto.Util.Padding import pad, unpad
+
+key = get_random_bytes(16)
+iv = get_random_bytes(16)
 counter_dvb = [0, 0]
 counter_v34 = [0, 0]
 counter_x16 = [0, 0]
@@ -26,83 +33,89 @@ switch_intensity = 1
 # =============== ZEGARY =================
 # Metoda zegara dla scramblerów addytywnych, sprzężenie zwrotne xora dla bitów ramki i sygnału wejściowego
 def sync_clock(frame, data, bit):
-    if bit[1] != -1:                                     # Sprawdzanie czy używamy obu bitów, potrzebne dla niektórych scramblerów
-        temp = xor(frame[bit[0]-1], frame[bit[1]-1])     # XOR dla bit[0] i bit[1],
-    else:                                                # Jeśli tylko 1 bit, przypisujemy wartość temu bitowi
-        temp = frame[bit[0]-1]
-    frame.pop()                                          # Usuwanie ostatniego bitu z ramki
-    frame.insert(0, temp)                                # Dodanie na początek wartości xor
-    xor_value = xor(temp, data)                          # Sprzężenie zwrotne wartości syganłu wejściowego i xora z bitów ramki
-    return xor_value                                     # Zwrócenie rezultatu
+    if bit[1] != -1:  # Sprawdzanie czy używamy obu bitów, potrzebne dla niektórych scramblerów
+        temp = xor(frame[bit[0] - 1], frame[bit[1] - 1])  # XOR dla bit[0] i bit[1],
+    else:  # Jeśli tylko 1 bit, przypisujemy wartość temu bitowi
+        temp = frame[bit[0] - 1]
+    frame.pop()  # Usuwanie ostatniego bitu z ramki
+    frame.insert(0, temp)  # Dodanie na początek wartości xor
+    xor_value = xor(temp, data)  # Sprzężenie zwrotne wartości syganłu wejściowego i xora z bitów ramki
+    return xor_value  # Zwrócenie rezultatu
 
 
 # Metoda zegara dla scramblerów multiplikatywnych, sprzężenie zwrotne xora dla bitów ramki i sygnału wejściowego
 def async_clock(frame, data, bit):
-    if bit[1] != -1:                                   # Sprawdzanie czy używamy obu bitów, potrzebne dla niektórych scramblerów
-      temp = xor(frame[bit[0]-1], frame[bit[1]-1])     # XOR dla bit[0] i bit[1],
-    else:                                              # Jeśli tylko 1 bit, przypisujemy wartość temu bitowi
-        temp = frame[bit[0]-1]
-    frame.pop()                                         # Usuwanie ostatniego bitu z ramki
-    xor_value = xor(temp, data)                         # Sprzężenie zwrotne wartości syganłu wejściowego i xora z bitów ramki
-    frame.insert(0, xor_value)                           # Dodawanie na początek ramki xora
-    return xor_value                                     # Rezultat zakodowanego sygnału
+    if bit[1] != -1:  # Sprawdzanie czy używamy obu bitów, potrzebne dla niektórych scramblerów
+        temp = xor(frame[bit[0] - 1], frame[bit[1] - 1])  # XOR dla bit[0] i bit[1],
+    else:  # Jeśli tylko 1 bit, przypisujemy wartość temu bitowi
+        temp = frame[bit[0] - 1]
+    frame.pop()  # Usuwanie ostatniego bitu z ramki
+    xor_value = xor(temp, data)  # Sprzężenie zwrotne wartości syganłu wejściowego i xora z bitów ramki
+    frame.insert(0, xor_value)  # Dodawanie na początek ramki xora
+    return xor_value  # Rezultat zakodowanego sygnału
 
 
 # Metoda zegara dla desramblerów multiplikatywnych
 def reverse_async_clock(frame, data, bit):
-    if bit[1] != -1:                                      # Sprawdzanie czy używamy obu bitów, potrzebne dla niektórych scramblerów
-        temp = xor(frame[bit[0]-1], frame[bit[1]-1])      # XOR dla bit[0] i bit[1],
-    else:                                                 # Jeśli tylko 1 bit, przypisujemy wartość temu bitowi
-        temp = frame[bit[0]-1]
-    frame.pop()                                         # Usuwanie ostatniego elementu ramki
-    frame.insert(0, data)                               # Dodawanie na początek ramki bitu sygnału
-    xor_value = xor(data, temp)                         # XOR dla bitu synganłu wejściowego i poprzedniego xora
-    return xor_value                                    # Zwrócenie zdekodowanego sygnału
+    if bit[1] != -1:  # Sprawdzanie czy używamy obu bitów, potrzebne dla niektórych scramblerów
+        temp = xor(frame[bit[0] - 1], frame[bit[1] - 1])  # XOR dla bit[0] i bit[1],
+    else:  # Jeśli tylko 1 bit, przypisujemy wartość temu bitowi
+        temp = frame[bit[0] - 1]
+    frame.pop()  # Usuwanie ostatniego elementu ramki
+    frame.insert(0, data)  # Dodawanie na początek ramki bitu sygnału
+    xor_value = xor(data, temp)  # XOR dla bitu synganłu wejściowego i poprzedniego xora
+    return xor_value  # Zwrócenie zdekodowanego sygnału
+
 
 # =============== SCRAMBLERY =================
 # DVB Scrambler addytywny
 def scramDVB(bits):
-    dataLength = len(bits)                                       # Długość sygnału wejściowego
-    frameDVBS = [1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0]    # Ramka  synchronizująca dla scramblera
-    scramBit = [len(frameDVBS), len(frameDVBS)-1]                # Bity używane przy sprzężeniu zwrotnym - dla DVB jest to ostatni i przedostatni bit
-    output_signal = []                                           # Tablica na dane wyjściowe
-    for i in range(0, dataLength):                               # Iteracja po całej tablicy danych wejściowych
+    dataLength = len(bits)  # Długość sygnału wejściowego
+    frameDVBS = [1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0]  # Ramka  synchronizująca dla scramblera
+    scramBit = [len(frameDVBS),
+                len(frameDVBS) - 1]  # Bity używane przy sprzężeniu zwrotnym - dla DVB jest to ostatni i przedostatni bit
+    output_signal = []  # Tablica na dane wyjściowe
+    for i in range(0, dataLength):  # Iteracja po całej tablicy danych wejściowych
         clock_result = sync_clock(frameDVBS, bits[i], scramBit)  # Wykonanie operacji zegara dla sclamblera addytywnego
-        output_signal.append(clock_result)                                      # Dodanie wyników do tablicy danych wyjściowych
+        output_signal.append(clock_result)  # Dodanie wyników do tablicy danych wyjściowych
     return output_signal
+
 
 # V34 Scrambler multiplikatywny
 def scramV34(bits):
     dataLength = len(bits)
-    frameV34 = [1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1] # Ramka
-    scramBits = [18, 23]                                                        # Bity używane w sprzężeniu zwrotym, dla V34 bit 18 i 23
-    output_signal = []                                                          # Tablica na dane wyjściowe
-    for i in range(0, dataLength):                                              # Iteracja po całej tablicy danych wejściowych
-        clock_result = async_clock(frameV34, bits[i], scramBits)   # Wykonanie operacji zegara
-        output_signal.append(clock_result)                                      # Dodanie wyników do tablicy danych wyjściowych
+    frameV34 = [1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1]  # Ramka
+    scramBits = [18, 23]  # Bity używane w sprzężeniu zwrotym, dla V34 bit 18 i 23
+    output_signal = []  # Tablica na dane wyjściowe
+    for i in range(0, dataLength):  # Iteracja po całej tablicy danych wejściowych
+        clock_result = async_clock(frameV34, bits[i], scramBits)  # Wykonanie operacji zegara
+        output_signal.append(clock_result)  # Dodanie wyników do tablicy danych wyjściowych
     return output_signal
+
 
 # V34 Desrambler multiplikatywny
 def descramV34(bits):
     dataLength = len(bits)
     frameV34 = [1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1]  # Ramka
-    scramBits = [18, 23]                                                   # Bity używane w sprzężeniu zwrotym, dla V34 bit 18 i 23
-    output_signal = []                                                     # Tablica na dane wyjściowe
+    scramBits = [18, 23]  # Bity używane w sprzężeniu zwrotym, dla V34 bit 18 i 23
+    output_signal = []  # Tablica na dane wyjściowe
     for i in range(0, dataLength):
-        clock_result = reverse_async_clock(frameV34, bits[i], scramBits)   # Operacja operacji dekodowania
-        output_signal.append(clock_result)                                 # Dodanie wyników do tablicy danych wyjściowych
+        clock_result = reverse_async_clock(frameV34, bits[i], scramBits)  # Operacja operacji dekodowania
+        output_signal.append(clock_result)  # Dodanie wyników do tablicy danych wyjściowych
     return output_signal
+
 
 #  x^16+1 Scrambler addytywny
 def scramX16(bits):
     dataLength = len(bits)
-    frameX16 = [1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1]           # Ramka
-    scramBit = [16, -1]                                                      # Bity używane w sprzężeniu zwrotym, dla x16 bit 16, -1 dla braku drugiego bitu
-    output_signal = []                                                       # Tablica na dane wyjściowe
+    frameX16 = [1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1]  # Ramka
+    scramBit = [16, -1]  # Bity używane w sprzężeniu zwrotym, dla x16 bit 16, -1 dla braku drugiego bitu
+    output_signal = []  # Tablica na dane wyjściowe
     for i in range(0, dataLength):
-        clock_result = sync_clock(frameX16, bits[i], scramBit)               # Operacja zegara
-        output_signal.append(clock_result)                                   # Dodanie wyników do tablicy danych wyjściowych
+        clock_result = sync_clock(frameX16, bits[i], scramBit)  # Operacja zegara
+        output_signal.append(clock_result)  # Dodanie wyników do tablicy danych wyjściowych
     return output_signal
+
 
 # =============== FUNKCJE POMOCNICZE =================
 # Zliczanie ilości bitów
@@ -112,6 +125,30 @@ def sumOfBits(bits, counter):
             counter[0] += 1
         else:
             counter[1] += 1
+
+
+def split(word):
+    return [char for char in word]
+
+
+def encryption(data, array):
+    array2 = array.copy()
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    ct_bytes = cipher.encrypt(pad(data, AES.block_size))
+    b = split(ct_bytes)
+    results = list(map(int, b))
+    bits = []
+    image_to_bits(results,bits)
+    bits_to_bytes(bits, array)
+    cv2.imwrite('AESencryption.jpg', array)  # Zapisywanie obrazka po szyfrowaniu
+    bits2 = []
+    cipher2 = AES.new(key, AES.MODE_CBC, iv)
+    pt = unpad(cipher2.decrypt(ct_bytes), AES.block_size)
+    desired_array = [int(numeric_string) for numeric_string in pt.decode("utf-8")]
+    image_to_bits(desired_array, bits2)
+    bits_to_bytes(bits2, array2)
+    cv2.imwrite('AESdescryption.jpg', array2)  # Zapisywanie obrazka po odszyfrowaniu
+
 
 
 # Zamiana bajtow obrazu na bity
@@ -132,15 +169,15 @@ def image_to_bits(data, bits):  # data -> bajty, bits -> docelowe zapisanie bit�
 def switch_bits(bits, switch_chance, counter, doCount):
     maxZerosAmount = 0
     maxOnesAmount = 0
-    amount = 0         # Ilosc takich samych bitów z kolei
-    chance = 0         # Szansa na pominięcie bitu
-    isZeroNow = True   # Uzywane do zliczania ilości takich samych bitów z kolei
-    index = 5          # Indeks pętli
+    amount = 0  # Ilosc takich samych bitów z kolei
+    chance = 0  # Szansa na pominięcie bitu
+    isZeroNow = True  # Uzywane do zliczania ilości takich samych bitów z kolei
+    index = 5  # Indeks pętli
 
     while index < len(bits):  # Dla kazdego bitu, index -> bit
         if (bits[index] == 0 and isZeroNow) or (bits[index] == 1 and not isZeroNow):  # Zliczanie
             amount += 1
-            chance = chance + (0.0075 * switch_chance * (amount/2.0))
+            chance = chance + (0.0075 * switch_chance * (amount / 2.0))
             if doCount:
                 if isZeroNow and maxZerosAmount < amount:
                     maxZerosAmount = amount
@@ -166,7 +203,7 @@ def switch_bits(bits, switch_chance, counter, doCount):
         counter[1] = maxOnesAmount
 
 
-def bits_to_bytes(bits, array):    # Zamiana z powrotem na bajty
+def bits_to_bytes(bits, array):  # Zamiana z powrotem na bajty
     bit_holder = []
     bit_counter = 0
     data = []
@@ -194,26 +231,26 @@ def tests_DVB(bits, array):
     scrambled_dvb_array = array.copy()
     descrambled_dvb_array = array.copy()
 
-    scrambled_dvb_bits = scramDVB(bits.copy())                  # Scramblowanie
-    sumOfBits(scrambled_dvb_bits, counter_dvb)                  # Zliczanie ilości bitów
-    bits_to_bytes(scrambled_dvb_bits, scrambled_dvb_array)      # Konwersja bitów na bajty
-    cv2.imwrite('DVB_scrambled.jpg', scrambled_dvb_array)       # Zapisywanie zescramblowanego obrazka
+    scrambled_dvb_bits = scramDVB(bits.copy())  # Scramblowanie
+    sumOfBits(scrambled_dvb_bits, counter_dvb)  # Zliczanie ilości bitów
+    bits_to_bytes(scrambled_dvb_bits, scrambled_dvb_array)  # Konwersja bitów na bajty
+    cv2.imwrite('DVB_scrambled.jpg', scrambled_dvb_array)  # Zapisywanie zescramblowanego obrazka
 
     # Kopia zescramblowanego obrazka, potrzebne do przywracania początkowej wersji po kazdym wykonaniu pętli
     scrambled_dvb_bits_copy = scrambled_dvb_bits.copy()
 
-    for i in range(1, 101): # 1-100
-        if i == switch_intensity:                                                     # Zapisywanie obrazka z próba nr. 50 - środkowa
+    for i in range(1, 101):  # 1-100
+        if i == switch_intensity:  # Zapisywanie obrazka z próba nr. 50 - środkowa
             switch_bits(scrambled_dvb_bits, i, counter_dvb_longest_sequence, True)  # Switchowanie bitów
             descrambled_dvb_bits = scramDVB(scrambled_dvb_bits)  # Descramblowanie
             bits_to_bytes(descrambled_dvb_bits, descrambled_dvb_array)  # Zamiana bitów na bajty
-            cv2.imwrite('DVB_descrambled.jpg', descrambled_dvb_array)   # Zapisywanie zdescramblowanego obrazka
+            cv2.imwrite('DVB_descrambled.jpg', descrambled_dvb_array)  # Zapisywanie zdescramblowanego obrazka
         else:
             switch_bits(scrambled_dvb_bits, i, counter_dvb_longest_sequence, False)  # Switchowanie bitów
             descrambled_dvb_bits = scramDVB(scrambled_dvb_bits)  # Descramblowanie
 
         count_switched_bits(descrambled_dvb_bits, counter_dvb_diffrent_bits)
-        scrambled_dvb_bits = scrambled_dvb_bits_copy.copy() # Przywracanie zescramblowanego obrazka ze zmienionymi bitami do początkowego
+        scrambled_dvb_bits = scrambled_dvb_bits_copy.copy()  # Przywracanie zescramblowanego obrazka ze zmienionymi bitami do początkowego
 
 
 def tests_V34(bits, array):
@@ -221,25 +258,25 @@ def tests_V34(bits, array):
     scrambled_v34_array = array.copy()
     descrambled_v34_array = array.copy()
 
-    scrambled_v34_bits = scramV34(bits.copy())                  # Scramblowanie
-    sumOfBits(scrambled_v34_bits, counter_v34)                  # Zliczanie ilości bitów
-    bits_to_bytes(scrambled_v34_bits, scrambled_v34_array)      # Konwersja bitów na bajty
-    cv2.imwrite('V34_scrambled.jpg', scrambled_v34_array)       # Zapisywanie zescramblowanego obrazka
+    scrambled_v34_bits = scramV34(bits.copy())  # Scramblowanie
+    sumOfBits(scrambled_v34_bits, counter_v34)  # Zliczanie ilości bitów
+    bits_to_bytes(scrambled_v34_bits, scrambled_v34_array)  # Konwersja bitów na bajty
+    cv2.imwrite('V34_scrambled.jpg', scrambled_v34_array)  # Zapisywanie zescramblowanego obrazka
 
     # Kopia zescramblowanego obrazka, potrzebne do przywracania początkowej wersji po kazdym wykonaniu pętli
     scrambled_v34_bits_copy = scrambled_v34_bits.copy()
 
-    for i in range(1, 101): # 1-100
-        if i == switch_intensity:                                                     # Zapisywanie obrazka z próba nr. 50 - środkowa
+    for i in range(1, 101):  # 1-100
+        if i == switch_intensity:  # Zapisywanie obrazka z próba nr. 50 - środkowa
             switch_bits(scrambled_v34_bits, i, counter_v34_longest_sequence, True)  # Switchowanie bitów
             descrambled_v34_bits = descramV34(scrambled_v34_bits)  # Descramblowanie
             bits_to_bytes(descrambled_v34_bits, descrambled_v34_array)  # Zamiana bitów na bajty
-            cv2.imwrite('V34_descrambled.jpg', descrambled_v34_array)   # Zapisywanie zdescramblowanego obrazka
+            cv2.imwrite('V34_descrambled.jpg', descrambled_v34_array)  # Zapisywanie zdescramblowanego obrazka
         else:
             switch_bits(scrambled_v34_bits, i, counter_v34_longest_sequence, False)  # Switchowanie bitów
             descrambled_v34_bits = descramV34(scrambled_v34_bits)  # Descramblowanie
         count_switched_bits(descrambled_v34_bits, counter_v34_diffrent_bits)
-        scrambled_v34_bits = scrambled_v34_bits_copy.copy() # Przywracanie zescramblowanego obrazka ze zmienionymi bitami do początkowego
+        scrambled_v34_bits = scrambled_v34_bits_copy.copy()  # Przywracanie zescramblowanego obrazka ze zmienionymi bitami do początkowego
 
 
 def tests_X16(bits, array):
@@ -247,25 +284,24 @@ def tests_X16(bits, array):
     scrambled_x16_array = array.copy()
     descrambled_x16_array = array.copy()
 
-    scrambled_x16_bits = scramX16(bits.copy())                  # Scramblowanie
-    sumOfBits(scrambled_x16_bits, counter_x16)                  # Zliczanie ilości bitów
-    bits_to_bytes(scrambled_x16_bits, scrambled_x16_array)      # Konwersja bitów na bajty
-    cv2.imwrite('X16_scrambled.jpg', scrambled_x16_array)       # Zapisywanie zescramblowanego obrazka
-
+    scrambled_x16_bits = scramX16(bits.copy())  # Scramblowanie
+    sumOfBits(scrambled_x16_bits, counter_x16)  # Zliczanie ilości bitów
+    bits_to_bytes(scrambled_x16_bits, scrambled_x16_array)  # Konwersja bitów na bajty
+    cv2.imwrite('X16_scrambled.jpg', scrambled_x16_array)  # Zapisywanie zescramblowanego obrazka
     # Kopia zescramblowanego obrazka, potrzebne do przywracania początkowej wersji po kazdym wykonaniu pętli
     scrambled_x16_bits_copy = scrambled_x16_bits.copy()
 
-    for i in range(1, 101): # 1-100
-        if i == switch_intensity:                                                     # Zapisywanie obrazka z próba nr. 50 - środkowa
+    for i in range(1, 101):  # 1-100
+        if i == switch_intensity:  # Zapisywanie obrazka z próba nr. 50 - środkowa
             switch_bits(scrambled_x16_bits, i, counter_x16_longest_sequence, True)  # Switchowanie bitów
             descrambled_x16_bits = scramX16(scrambled_x16_bits)  # Descramblowanie
             bits_to_bytes(descrambled_x16_bits, descrambled_x16_array)  # Zamiana bitów na bajty
-            cv2.imwrite('X16_descrambled.jpg', descrambled_x16_array)   # Zapisywanie zdescramblowanego obrazka
+            cv2.imwrite('X16_descrambled.jpg', descrambled_x16_array)  # Zapisywanie zdescramblowanego obrazka
         else:
             switch_bits(scrambled_x16_bits, i, counter_x16_longest_sequence, False)  # Switchowanie bitów
             descrambled_x16_bits = scramX16(scrambled_x16_bits)  # Descramblowanie
         count_switched_bits(descrambled_x16_bits, counter_x16_diffrent_bits)
-        scrambled_x16_bits = scrambled_x16_bits_copy.copy() # Przywracanie zescramblowanego obrazka ze zmienionymi bitami do początkowego
+        scrambled_x16_bits = scrambled_x16_bits_copy.copy()  # Przywracanie zescramblowanego obrazka ze zmienionymi bitami do początkowego
 
 
 def tests_start(bits, array):
@@ -389,10 +425,12 @@ for x in range(0, len(image_array)):
     for y in range(0, len(image_array[x])):
         for z in range(0, len(image_array[x][y])):
             image_data.append(image_array[x][y][z])
-
 # Zamiana obrazka na bity
-image_data_bits = []        # Bity początkowego obrazka
+image_data_bits = []  # Bity początkowego obrazka
 image_to_bits(image_data, image_data_bits)
+
+bytes_as_String = ''.join(str(x) for x in image_data)
+
 
 switch_intensity = int(input("Type switching intensity [1-100] (only for in-console stats and file save): "))
 if switch_intensity < 1 or switch_intensity > 100:
@@ -410,6 +448,8 @@ tests_V34(image_data_bits.copy(), image_array.copy())
 
 # =============== X16 ================
 tests_X16(image_data_bits.copy(), image_array.copy())
+# =============== AES ================
+encryption(bytes_as_String.encode('UTF-8'),image_array.copy())
 
 # Wyświetlanie statystyk
 print_stats()
